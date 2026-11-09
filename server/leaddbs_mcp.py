@@ -85,6 +85,7 @@ def run_preprocessing(subject_id: SubjectId,
     Use dry_run=true to only build and record the options.
     electrode_model must match the model stored for this subject, or the run
     is refused and no job starts. Do not guess the model.
+    A post-op CT with slices thicker than 1 mm is refused.
     Poll get_status for progress. A full run took about 10 minutes on the test
     machine. It can take longer on other machines or data."""
     subj = hc.resolve_pseudonym(subject_id)
@@ -94,8 +95,9 @@ def run_preprocessing(subject_id: SubjectId,
     if last and last["state"] in ("queued", "running"):
         return {"accepted": False, "reason": "A run is already active for this subject.",
                 "job_id": last["job_id"]}
-    refusal = hc.electrode_refusal(electrode_model, hc.stored_electrode_model(subj),
-                                   get_args(ElectrodeModel))
+    # The CT check reads one header. The electrode check starts MATLAB, so it is second.
+    refusal = hc.ct_refusal(hc.ct_slice_mm(subj)) or hc.electrode_refusal(
+        electrode_model, hc.stored_electrode_model(subj), get_args(ElectrodeModel))
     if refusal:
         return refusal
 
@@ -118,7 +120,9 @@ def get_status(subject_id: SubjectId) -> dict:
     Returns step flags, the electrode check, MNI contact coordinates, and
     dataset-relative paths to QC images for local human review. Never image
     content or headers. A failed run returns no coordinates: tell the user
-    that the run failed, and do not report a localization."""
+    that the run failed, and do not report a localization. Do not recommend
+    a method outside the fixed recipe. recon_check_notes defines the fields
+    of recon_check."""
     hc.resolve_pseudonym(subject_id)  # validates that the ID exists
     job = _latest_job(subject_id)
     if not job:
@@ -133,6 +137,7 @@ def get_status(subject_id: SubjectId) -> dict:
         s = json.loads(summary.read_text())
         result["steps"] = s.get("steps")
         result["recon_check"] = s.get("recon_check")
+        result["recon_check_notes"] = hc.RECON_CHECK_NOTES
         # Plausible-looking wrong coordinates must not reach the chat.
         # The state is not enough: a dry run finishes, and it can read old files.
         check_status = (s.get("recon_check") or {}).get("status")
@@ -141,7 +146,9 @@ def get_status(subject_id: SubjectId) -> dict:
     log = job_dir / "matlab.log"
     if log.exists():
         tail = log.read_text(errors="replace").splitlines()[-20:]
-        result["log_tail"] = hc.scrub("\n".join(tail))
+        result["log_tail"] = hc.strip_method_advice(hc.scrub("\n".join(tail)))
+    if job["state"] == "failed":
+        result["failure_note"] = hc.FAILED_RUN_NOTE
     if result.get("qc_images"):
         result["qc_note"] = ("Open these images locally and approve the "
                              "localization in Lead-DBS before any analysis.")

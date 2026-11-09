@@ -26,4 +26,12 @@ for path in ("/Volumes/Jane_Doe/x.nii", "/Users/janedoe/a.m", "/private/tmp/b.ma
 for text in ("voxel 1.0/2.0 mm", "<leaddbs>/ea_run.m", "~/a.m", "and/or", "derivatives/qc/a.png"):
     assert hc.scrub(text) == text, text
 
+# Lead-DBS advice to use a method outside the recipe. MATLAB can wrap the text.
+wrapped = ("PaCER failed. Potentially try running the TRAC/CORE Algorithm or a fully manual\n"
+           "pre-reconstruction.\n\nError in ea_autocoord (line 338)")
+out = hc.strip_method_advice(wrapped)
+assert "TRAC/CORE" not in out and "manual" not in out, out
+assert out.startswith("PaCER failed.") and "Error in ea_autocoord (line 338)" in out, out
+assert hc.strip_method_advice("Max off-model: 0.07") == "Max off-model: 0.07"
+
 print("test_scrub passed")

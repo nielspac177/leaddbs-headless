@@ -195,7 +195,9 @@ uv run headless/tests/smoke_test.py /path/to/dataset --matlab
 - Job state is in JSON files. If the machine reboots mid-run, the job stays
   `running`.
 - PaCER needs a post-op CT. PaCER warns about slices thicker than 0.7 mm, and
-  it failed on a 2 mm CT (see below). There is no slice-thickness check yet.
+  it failed on a 2 mm CT (see below). `run_preprocessing` refuses a CT with slices
+  thicker than 1 mm, or a CT that it cannot read, and no job starts. The 1 mm limit
+  is the upper end of the tested range. It is not a validated value.
 - A failed run does not delete the existing `desc-reconstruction.mat`. The GUI
   can still open that old file.
 - The PHI scrubber uses patterns, not NLP.
@@ -337,7 +339,11 @@ Open problems:
 
 - **Advice outside the recipe:** the Lead-DBS error text suggests TRAC/CORE, so the
   client offered it. The tools cannot run it, and it gave a wrong result on that patient.
+  `get_status` now removes this advice from the log text and returns `failure_note`.
+  This was tested at the tool level only, not with a chat client.
 - **Misread field:** the client called `weakest_contact_vs_metal` (a ratio) a distance.
+  `get_status` now returns `recon_check_notes`, which defines each field. This was
+  tested at the tool level only, not with a chat client.
 - **Client state:** the client used the user's own settings and notes from earlier
   sessions. So a reply can draw on more than the tools, and the client can store
   tool results on this computer.

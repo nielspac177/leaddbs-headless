@@ -5,6 +5,7 @@ Everything here runs locally. Nothing in this module sends data anywhere.
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import hmac
 import json
@@ -12,8 +13,10 @@ import os
 import re
 import secrets
 import shutil
+import struct
 import subprocess
 import tempfile
+import zlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -101,6 +104,72 @@ def electrode_refusal(requested: str, stored: str | None, supported: tuple) -> d
                 "stored_model": stored, "requested_model": requested,
                 "message": "The requested model differs from the stored model. No job started. " + ask}
     return None
+
+
+# ------------------------------------------------------------- post-op CT check
+
+# Upper end of the tested range. PaCER failed at 2 mm. No supported patient lies
+# between 1 and 2 mm. This limit comes from 6 patients and is not a validated value.
+MAX_CT_SLICE_MM = 1.0
+
+
+def _nifti_slice_mm(path: Path) -> float | None:
+    """Largest voxel size from a NIfTI-1 header, or None if the header is not usable."""
+    try:
+        with (gzip.open(path, "rb") if path.suffix == ".gz" else path.open("rb")) as f:
+            header = f.read(348)
+        for order in "<>":
+            if len(header) == 348 and struct.unpack(order + "i", header[:4])[0] == 348:
+                pixdim = struct.unpack(order + "3f", header[80:92])
+                return max(pixdim) if min(pixdim) > 0 else None
+    except (OSError, EOFError, zlib.error, struct.error):
+        pass
+    return None
+
+
+def ct_slice_mm(subj: str) -> float | None:
+    """Thickest slice of the post-op CT files, or None if any file cannot be read."""
+    raw = dataset_dir() / "rawdata" / f"sub-{subj}"
+    files = [p for p in raw.glob("ses-postop*/anat/*CT*.nii*") if not p.name.startswith("._")]
+    sizes = [_nifti_slice_mm(p) for p in files]
+    return max(sizes) if sizes and None not in sizes else None
+
+
+def ct_refusal(slice_mm: float | None) -> dict | None:
+    """Why the CT must not go to PaCER, or None if it may. Fails closed."""
+    if slice_mm is None:
+        return {"accepted": False, "reason": "ct_not_readable",
+                "message": "No readable post-op CT was found for this subject. No job started."}
+    if round(slice_mm, 2) > MAX_CT_SLICE_MM:
+        return {"accepted": False, "reason": "ct_slices_too_thick",
+                "ct_slice_mm": round(slice_mm, 2), "max_slice_mm": MAX_CT_SLICE_MM,
+                "message": "The post-op CT slices are thicker than this recipe was tested on. "
+                           "No job started. This subject cannot run with this recipe."}
+    return None
+
+
+# ------------------------------------------------------- text for the chat client
+
+FAILED_RUN_NOTE = ("This server runs one fixed recipe. It cannot run another method. "
+                   "Report the failure to the user. Do not recommend another method, "
+                   "and do not offer to run one.")
+
+RECON_CHECK_NOTES = {
+    "weakest_contact_vs_metal": "A ratio with no unit, not a distance. It is the CT signal near "
+                                "the weakest contact, divided by the metal threshold. "
+                                "Values of 1 or more pass.",
+    "length_mm": "Distance from the first contact to the last contact, in mm.",
+    "expected_length_mm": "The same distance in the electrode model, in mm.",
+    "pass": "A pass does not validate the localization. A person must still review it.",
+}
+
+_METHOD_ADVICE = re.compile(r"Potentially\s+try\s+running\s+the\s+TRAC/CORE.*?pre-reconstruction\.?",
+                            re.DOTALL)
+
+
+def strip_method_advice(text: str) -> str:
+    """Remove the Lead-DBS advice to use a method that this server cannot run."""
+    return _METHOD_ADVICE.sub("[advice removed: method outside the recipe]", text)
 
 
 def now() -> str:
