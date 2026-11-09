@@ -22,7 +22,8 @@ headless/
 ## The recipe (`preprocessing_v2`)
 
 `v1` used Refined TRAC/CORE. `v2` uses PaCER, the Lead-DBS default for CT. Only `v2`
-has matched the expert reference, on one patient (see "Real-data runs").
+has matched the expert reference, on 4 patients where PaCER succeeded (see
+"Real-data runs").
 
 | step | method |
 |---|---|
@@ -231,8 +232,23 @@ ID or path in `get_status`.
 | 0.5 mm | Boston Scientific Vercise Directed | PaCER (`v2`) | 2 electrodes found, electrode check passed, about 10 minutes |
 
 On the 2 mm CT, a threshold of 2000 shows one continuous lead and one lead in
-pieces. The probable cause of the PaCER failure is the 2 mm slices. This is not
-proven, because the 0.5 mm patient also differs in electrode model and anatomy.
+pieces.
+
+Runs on 2026-11-07, recipe `v2`, all with 1 mm CT slices and Boston Scientific
+Vercise Directed:
+
+| Patient | Result | Time |
+|---|---|---|
+| 29781 | Electrode check passed on both sides | 8.3 min |
+| 33544 | Failed: "PaCER returned a different number of electrodes than expected" | 8.2 min |
+| 57245 | Electrode check passed on both sides | 8.2 min |
+| 80206 | Electrode check passed on both sides | 8.8 min |
+
+Summary: PaCER worked on 4 of 6 patients, and all 4 had slices thinner than
+2 mm. The failure on 33544 is the same failure as on the 2 mm CT, so slice
+thickness is not the only cause. PaCER says that a wrong brain mask is the usual
+cause. This is not proven. On every 1 mm run, PaCER could not detect the electrode
+type, so it used the model that the server gave it.
 
 **Electrode check:** it fails the saved TRAC/CORE result on both tests and both
 sides, and it passes the 0.5 mm PaCER result. That is one case of each.
@@ -242,34 +258,48 @@ Limits of the check on PaCER results:
 - PaCER fits the model geometry, so the length test passes almost automatically.
 - The shaft is metal, so a contact moved along the shaft can still pass.
 
-**Not verified:** a person's review of the 0.5 mm result in the GUI, the
-comparison with a GUI run, and the 1 mm CTs.
+**Not verified:** a person's review of any result in the GUI, and the
+comparison with a GUI run.
 
 ### Comparison with the Lead-Tutor expert reference (2026-11-06)
 
-One patient (78754, 0.5 mm CT, recipe `v2`), distance in MNI space from the
-average of two experts:
+Four patients (recipe `v2`, Boston Scientific Vercise Directed). The table gives the
+distance in MNI space from the average of two experts. The mean is the mean of
+the head and tail distances. 78754 was sent on 2026-11-06, and the other 3 on
+2026-11-07.
 
-| Electrode marker | Head | Tail | Mean | Page band for this patient | Rotation |
-|---|---|---|---|---|---|
-| `markers(1)` | 0.17 mm | 0.17 mm | 0.17 mm | Green (up to 0.35 mm) | 33.3° |
-| `markers(2)` | 0.49 mm | 0.46 mm | 0.48 mm | Yellow (0.35 to 0.70 mm) | 21.1° |
+| Patient | CT slices | `markers(1)` head / tail / mean | `markers(2)` head / tail / mean |
+|---|---|---|---|
+| 78754 | 0.5 mm | 0.17 / 0.17 / 0.17 mm | 0.49 / 0.46 / 0.48 mm |
+| 29781 | 1 mm | 0.40 / 0.53 / 0.47 mm | 0.20 / 0.49 / 0.34 mm |
+| 57245 | 1 mm | 0.37 / 0.53 / 0.45 mm | 0.18 / 0.18 / 0.18 mm |
+| 80206 | 1 mm | 0.53 / 0.66 / 0.59 mm | 0.16 / 0.20 / 0.18 mm |
 
-Mean of both: 0.33 mm. The Lead-Tutor paper reports 0.37 mm between its experts
-and 0.66 mm for non-experts against the experts.
+All 8 electrodes: mean 0.36 mm, median 0.40 mm, largest 0.59 mm. The Lead-Tutor
+paper reports 0.37 mm between its experts and 0.66 mm for non-experts against the
+experts. No electrode was more than 0.66 mm from the experts. On the result page for
+78754, `markers(1)` was in the green band (up to 0.35 mm), and `markers(2)` was in
+the yellow band (0.35 to 0.70 mm).
+
+The server keeps only the last upload for each user ID. So send one patient, then
+download its result, before you send the next patient.
 
 Limits of this result:
 
-- It is one patient, with the thinnest CT slices that we tested.
+- It is 4 patients of 10. PaCER failed on 2 patients, and 4 patients have electrode
+  models that the recipe does not support. So the result applies only to patients
+  where PaCER succeeds.
 - It is not fully independent. The experts also started from Lead-DBS tools,
   and they could start from PaCER before manual refinement.
-- The rotation is not a result of this pipeline, which does not determine
-  orientation. The published expert difference is 4.68°. Do not use segment labels.
+- The server returns a rotation difference of 10° to 79° per electrode. These values
+  are not results of this pipeline, which does not determine orientation. The
+  published expert difference is 4.68°. Do not use segment labels.
 - The band limits come from the result page's chart code. The server does not
   return a color.
 
 How it ran: `ea_querytutor.m` was not used. It sends every reconstruction in the
-dataset, and it labels patients by list position. One POST sent `pt_78754` only.
+dataset, and it labels patients by list position. Each POST sent one patient only,
+for example `pt_78754`.
 
 **Use this server for the public Lead-Tutor data only, never for real patients.**
 It stores the markers and a machine ID (a hash of the Mac serial number), and it
