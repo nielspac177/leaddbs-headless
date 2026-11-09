@@ -145,8 +145,10 @@ def get_status(subject_id: SubjectId) -> dict:
             result["contacts_mni"] = s.get("contacts_mni")
     log = job_dir / "matlab.log"
     if log.exists():
-        tail = log.read_text(errors="replace").splitlines()[-20:]
-        result["log_tail"] = hc.strip_method_advice(hc.scrub("\n".join(tail)))
+        text = log.read_text(errors="replace")
+        result["log_tail"] = hc.strip_method_advice(hc.scrub("\n".join(text.splitlines()[-20:])))
+        if job["state"] == "failed":
+            result["failure_detail"] = hc.failure_detail(text)
     if job["state"] == "failed":
         result["failure_note"] = hc.FAILED_RUN_NOTE
     if result.get("qc_images"):

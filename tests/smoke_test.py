@@ -79,7 +79,10 @@ async def main(dataset: str, with_matlab: bool) -> None:
                     print("run_preprocessing with stored model:", started)
                     break
             assert refusals, "no request was refused"
-            assert started and started["accepted"], "no subject could start a dry run"
+            assert started, "no subject has never run"
+            if not started["accepted"]:
+                print("SKIPPED dry run: no subject that never ran can pass the checks")
+                return
             for _ in range(120):
                 status = payload(await s.call_tool("get_status", {"subject_id": target["id"]}))
                 if status["state"] in ("finished", "failed"):

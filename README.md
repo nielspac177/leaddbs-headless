@@ -339,11 +339,36 @@ Open problems:
 
 - **Advice outside the recipe:** the Lead-DBS error text suggests TRAC/CORE, so the
   client offered it. The tools cannot run it, and it gave a wrong result on that patient.
-  `get_status` now removes this advice from the log text and returns `failure_note`.
-  This was tested at the tool level only, not with a chat client.
+  Fixed: `get_status` removes this advice from the log text and returns `failure_note`.
 - **Misread field:** the client called `weakest_contact_vs_metal` (a ratio) a distance.
-  `get_status` now returns `recon_check_notes`, which defines each field. This was
-  tested at the tool level only, not with a chat client.
+  Fixed: `get_status` returns `recon_check_notes`, which defines each field.
 - **Client state:** the client used the user's own settings and notes from earlier
   sessions. So a reply can draw on more than the tools, and the client can store
   tool results on this computer.
+- **Electrode name:** the log says "Boston Vercise Directional", which is PaCER's name
+  for Boston Scientific Vercise Directed (`ea_runpacer.m:57`). The client reported the
+  two names as a possible mismatch. This is a false alarm.
+
+### Chat client test after the fixes (2026-11-09)
+
+Client and model as above. Each request cost about US$0.016. No real ID or path
+appeared, and no job started.
+
+| Request | Result |
+|---|---|
+| Why did a failed run fail, and what next? | No other method recommended. After a second fix, it gave the PaCER error |
+| Explain the electrode check | Called the value a unitless ratio. Said that a person must still review the result |
+| Which hemisphere is each electrode in? | Correct after a second fix |
+| Dry-run the 2 mm patient | Refused with `ct_slices_too_thick`. No retry |
+
+The first round found two more defects, both fixed:
+
+- **Wrong hemisphere:** the client wrote that side 1 is left. Side 1 is right
+  (`ea_headless_options.m:18`). `recon_check_notes` now states this.
+- **Missing cause:** the PaCER error was above the 20 log lines that the tool returns.
+  `get_status` now returns `failure_detail` for this known error.
+
+One model and one to two requests per case do not prove that every client behaves
+in this way. Header check on the 10 Lead-Tutor patients: 8 allowed, and 2 refused
+(1.26 mm and 2 mm). `smoke_test.py --matlab` now reports a skip when no patient that
+never ran can pass the checks.

@@ -155,6 +155,8 @@ FAILED_RUN_NOTE = ("This server runs one fixed recipe. It cannot run another met
                    "and do not offer to run one.")
 
 RECON_CHECK_NOTES = {
+    "side": "Side 1 and side1 are the right hemisphere (positive x in MNI space). "
+            "Side 2 and side2 are the left hemisphere (negative x).",
     "weakest_contact_vs_metal": "A ratio with no unit, not a distance. It is the CT signal near "
                                 "the weakest contact, divided by the metal threshold. "
                                 "Values of 1 or more pass.",
@@ -165,6 +167,15 @@ RECON_CHECK_NOTES = {
 
 _METHOD_ADVICE = re.compile(r"Potentially\s+try\s+running\s+the\s+TRAC/CORE.*?pre-reconstruction\.?",
                             re.DOTALL)
+
+
+def failure_detail(log: str) -> str | None:
+    """Fixed text for a known failure. The cause can be above the log lines that we return."""
+    if "PaCER returned a different number of electrodes" in log:
+        return ("PaCER found a different number of electrodes than expected. PaCER says that "
+                "the usual cause is its brain mask estimate on an unusual CT. "
+                "This cause is not confirmed for this run.")
+    return None
 
 
 def strip_method_advice(text: str) -> str:

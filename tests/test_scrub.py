@@ -34,4 +34,12 @@ assert "TRAC/CORE" not in out and "manual" not in out, out
 assert out.startswith("PaCER failed.") and "Error in ea_autocoord (line 338)" in out, out
 assert hc.strip_method_advice("Max off-model: 0.07") == "Max off-model: 0.07"
 
+# A known failure gives fixed text. An unknown failure gives nothing.
+known = "Message: PaCER returned a different number of electrodes than expected by LeadDBS!"
+assert "different number of electrodes" in hc.failure_detail(known)
+assert hc.failure_detail("Error in ea_run (line 113)") is None
+
+# The hemisphere note must stay in the output, because a client guessed it wrong.
+assert "right hemisphere" in hc.RECON_CHECK_NOTES["side"]
+
 print("test_scrub passed")
