@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below. Please also cite Lead-DBS and the methods of the recipe."
+title: "Lead-DBS headless MCP server"
+type: software
+version: 0.1.0
+license: GPL-3.0-only
+authors:
+  - family-names: Pacheco-Barrios
+    given-names: Niels
+keywords:
+  - deep brain stimulation
+  - Lead-DBS
+  - electrode localization
+  - Model Context Protocol

@@ -61,7 +61,8 @@ def main(job_dir: Path) -> int:
     job.update(state="running", started=hc.now())
     job_file.write_text(json.dumps(job, indent=2))
     base = {"job_id": job["job_id"], "pseudonym": pid, "recipe": job["recipe"],
-            "dry_run": job["dry_run"], "leaddbs": hc.leaddbs_git()}
+            "dry_run": job["dry_run"], "leaddbs": hc.leaddbs_git(),
+            "headless": hc.leaddbs_git(hc.HEADLESS_DIR)}
     hc.append_provenance({**base, "event": "started", "time": job["started"],
                           "inputs_sha256": hc.input_hashes(subj)})
 

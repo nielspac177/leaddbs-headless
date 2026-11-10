@@ -51,7 +51,15 @@ function hl_setpath
 if ~isempty(which('ea_autocoord'))
     return
 end
-leaddbsRoot = fileparts(fileparts(fileparts(mfilename('fullpath'))));
+headlessDir = fileparts(fileparts(mfilename('fullpath')));
+% LEADDBS_ROOT is set when this folder is not inside Lead-DBS.
+leaddbsRoot = getenv('LEADDBS_ROOT');
+if isempty(leaddbsRoot)
+    leaddbsRoot = fileparts(headlessDir);
+end
+if ~isfile(fullfile(leaddbsRoot, 'ea_autocoord.m'))
+    error('hl:leaddbs', 'Lead-DBS not found. Set LEADDBS_ROOT to the Lead-DBS folder.');
+end
 addpath(leaddbsRoot);
 excl = {'ext_libs', 'release', 'headless'};
 d = dir(leaddbsRoot);
@@ -66,7 +74,7 @@ d = d([d.isdir] & ~startsWith({d.name}, {'.', '@', 'mambaforge', 'SlicerNetstim'
 for i = 1:numel(d)
     addpath(genpath(fullfile(extDir, d(i).name)));
 end
-addpath(fullfile(leaddbsRoot, 'headless'));
+addpath(headlessDir);
 if isempty(which('spm'))
     error('hl:spm', 'SPM12 is not on the MATLAB path. Add it to your saved path first.');
 end

@@ -16,6 +16,10 @@ os.environ.pop("LEADDBS_DATASET", None)
 out = hc.scrub(f"In: {hc.LEADDBS_ROOT}/ea_runpacer.m")
 assert out == "In: <leaddbs>/ea_runpacer.m", out
 
+# The server's own folder, which can sit outside Lead-DBS.
+out = hc.scrub(f"Error in {hc.HEADLESS_DIR}/matlab/hl_run_preprocessing.m")
+assert out == "Error in <headless>/matlab/hl_run_preprocessing.m", out
+
 # Paths outside the install, the dataset and the home folder.
 for path in ("/Volumes/Jane_Doe/x.nii", "/Users/janedoe/a.m", "/private/tmp/b.mat",
              "/Applications/MATLAB_R2024b.app/toolbox/c.m"):

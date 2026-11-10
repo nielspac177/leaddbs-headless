@@ -21,7 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 HEADLESS_DIR = Path(__file__).resolve().parent.parent
-LEADDBS_ROOT = HEADLESS_DIR.parent
+# Lead-DBS install. Set LEADDBS_ROOT when this folder is not inside Lead-DBS.
+LEADDBS_ROOT = Path(os.path.abspath(Path(os.environ.get("LEADDBS_ROOT") or HEADLESS_DIR.parent).expanduser()))
 MATLAB_DIR = HEADLESS_DIR / "matlab"
 
 PSEUDONYM_RE = re.compile(r"^P-[0-9a-f]{10}$")
@@ -252,6 +253,8 @@ def scrub(text: str) -> str:
         text = text.replace(root, "<dataset>")
     except RuntimeError:
         pass
+    # The server folder first: it can be inside the Lead-DBS folder.
+    text = text.replace(str(HEADLESS_DIR), "<headless>")
     text = text.replace(str(LEADDBS_ROOT), "<leaddbs>")
     text = text.replace(str(Path.home()), "~")
     try:
@@ -275,9 +278,10 @@ def sha256_file(path: Path, chunk: int = 1 << 20) -> str:
     return h.hexdigest()
 
 
-def leaddbs_git() -> dict:
+def leaddbs_git(root: Path = LEADDBS_ROOT) -> dict:
+    """Commit and changed-file flag of a git checkout (Lead-DBS by default)."""
     def git(*args: str) -> str:
-        return subprocess.run(["git", "-C", str(LEADDBS_ROOT), *args],
+        return subprocess.run(["git", "-C", str(root), *args],
                               capture_output=True, text=True, timeout=30).stdout.strip()
     try:
         return {"commit": git("rev-parse", "HEAD"),
