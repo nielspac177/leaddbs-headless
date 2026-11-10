@@ -1,15 +1,17 @@
-# Headless blockers on the validated preprocessing path
+# GUI calls on the headless preprocessing path
 
-Scope: `ea_run('run', options)` → `ea_autocoord` with the options from
-`ea_headless_options.m`. The path covers coregistration (MR: SPM, CT: ANTs),
-ANTs normalization, brainshift correction (coarse mask), and electrode
-reconstruction. Line numbers refer to commit `ceee6cd` on `develop`.
+This file lists each place where Lead-DBS can open a window, wait for input, or
+depend on the GUI while `ea_run('run', options)` calls `ea_autocoord` with the
+options from `ea_headless_options.m`. The path covers MRI coregistration with SPM,
+CT coregistration with ANTs, ANTs normalization, brainshift correction with a
+coarse mask, and electrode reconstruction. Line numbers refer to commit `ceee6cd`
+on `develop`.
 
-This list was made for recipe `v1` (Refined TRAC/CORE). Recipe `v2` uses PaCER, so
-the `ea_reconstruct_trajectory.m` and `ea_refinecoords.m` rows no longer apply.
-
-No Lead-DBS file was patched. Each blocker is avoided by an option value or a
-precondition. Where that is not enough, a proposed upstream fix is listed.
+We made the list for recipe `v1`, which used Refined TRAC/CORE. Recipe `v2` uses
+PaCER, so the rows for `ea_reconstruct_trajectory.m` and `ea_refinecoords.m` no
+longer apply to the current recipe. We changed no Lead-DBS file. The headless path
+avoids each call with an option value or a precondition, and the last column gives
+a proposed upstream change where an option value is not enough.
 
 ## A. Blocks or fails on this path unless avoided
 
@@ -44,24 +46,36 @@ precondition. Where that is not enough, a proposed upstream fix is listed.
 | `ea_handles2options.m` | `getappdata(handles.normsettings,'settings')` | Not called. `normalize.settings=[]` uses the method defaults from `prefs.machine.normsettings` |
 | `ea_refinecoords.m:166–206` | `figure` + `print` | `prefs.reco.saveimg=0` (default) |
 
-## C. Behaviour to know about
+## C. Behavior to know about
 
-- `ea_mod2pacermod` (`ea_runpacer.m`) sends an empty type for models that it does
-  not map, and PaCER then estimates the type. So `run_preprocessing` accepts only
-  Medtronic 3387, Medtronic 3389, and Boston Scientific Vercise Directed.
-- PaCER uses one connected metal component per electrode. On a 2 mm CT it found
-  1 of 2 electrodes, and `ea_runpacer.m:20` stopped the run with an error.
-- With more than one patient, `ea_run.m:95-100` takes `elmodel` and `sides` from each
-  subject's `uiprefs.mat`. The spike runs one patient per call, so this branch is not
-  reached. `ea_storeui` writes that file from the current GUI state, so it can hold a
-  value that nobody chose on purpose. The server refuses a run when the requested
-  model differs from this file (see README).
-- `ea_prefs` creates `~/.leaddbs/` with default prefs on the first run. It does
-  not prompt. The run reads per-user prefs, so `options.json` stores the full
-  `prefs` struct and its hash is in the provenance record.
-- `-batch` still needs a graphics stack for invisible figures (brainshift GUI,
-  `progressfig`). Under `-nodisplay` on macOS this works for `figure`. Not yet
-  verified for the GUIDE `.fig` of `ea_subcorticalrefine` (see README, "Not
-  verified").
-- Checkreg PNGs come from `ea_gencheckregfigs`, which uses the FSL `slicer`
-  binary rather than MATLAB figures. They are therefore safe to produce headless.
+**Electrode models.** `ea_mod2pacermod` in `ea_runpacer.m` sends an empty type for
+a model that it does not map, and PaCER then guesses the type. For this reason
+`run_preprocessing` accepts only Medtronic 3387, Medtronic 3389, and Boston
+Scientific Vercise Directed. PaCER uses one connected metal component for each
+electrode. On a 2 mm CT it found 1 of 2 electrodes, and `ea_runpacer.m:20` stopped
+the run with an error.
+
+**Stored GUI state.** With more than one patient, `ea_run.m:95-100` takes `elmodel`
+and `sides` from the `uiprefs.mat` file of each patient. The server runs one patient
+per call, so it does not reach this branch. `ea_storeui` writes that file from the
+current GUI state, and opening a patient in the GUI is enough to write it
+(`helpers/gui/ea_load_pts.m:291`). The file can therefore hold a value that nobody
+chose on purpose. The server refuses a run when the requested model differs from
+the stored model (see `README.md`).
+
+**Per-user preferences.** `ea_prefs` creates `~/.leaddbs/` with default
+preferences on the first run, with no prompt. A run reads these preferences, so
+`options.json` stores the full `prefs` struct and the provenance record holds its
+hash. `ea_command_line_run.m:162-172` and the `lead_dbs` app change the preferences.
+One run on 2026-11-09 changed `machine.lc` fields in `~/.leaddbs/ea_prefs_user.mat`,
+reduced the file from 62 KB to 2 KB, and added `prefs.firstrun` to
+`ea_prefs_user.m`. A server must therefore not call `ea_command_line_run`. The
+headless path through `ea_headless_options` did not change the `.mat` file in its
+runs.
+
+**Graphics.** `matlab -batch` still needs a graphics stack for invisible figures,
+such as the brainshift window and `progressfig`. On macOS under `-nodisplay`, the
+real-data runs completed brainshift correction with no blocking window, including
+the GUIDE `.fig` of `ea_subcorticalrefine`. The checkreg PNGs come from
+`ea_gencheckregfigs`, which uses the FSL `slicer` program instead of MATLAB figures,
+so they need no display.
